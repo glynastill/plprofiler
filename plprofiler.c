@@ -86,6 +86,7 @@ typedef struct lineEntry
 
 static HTAB *line_stats = NULL;
 static bool enabled     = false;
+static bool anonymous   = false;
 
 static int  plprofiler_max;    /* max # lines to track */
 static int  plprofiler_len;    /* max lenght of a line to track */
@@ -199,6 +200,11 @@ static void profiler_init( PLpgSQL_execstate * estate, PLpgSQL_function * func )
 	profilerCtx * profilerInfo;
 	char		* procSrc;
 
+        if (func->fn_oid == InvalidOid) {
+            anonymous = true;
+            return;
+        }
+
         if (!enabled)
             return;
 
@@ -254,6 +260,11 @@ static void profiler_func_end( PLpgSQL_execstate * estate, PLpgSQL_function * fu
 {
 	profilerCtx * profilerInfo;
 	int           lineNo;
+
+        if (anonymous) {
+            anonymous = false;
+            return;
+        }
 
         if (!enabled)
             return;
@@ -319,7 +330,7 @@ static void profiler_stmt_beg( PLpgSQL_execstate * estate, PLpgSQL_stmt * stmt )
 	stmt_stats     * stats;
         profilerCtx    * profilerInfo;
 
-        if (!enabled)
+        if (!enabled || anonymous)
             return;
 
 	profilerInfo = (profilerCtx *) estate->plugin_info;
@@ -348,7 +359,7 @@ static void profiler_stmt_end( PLpgSQL_execstate * estate, PLpgSQL_stmt * stmt )
 	instr_time    end_time;
         uint64        elapsed;
 
-        if (!enabled)
+        if (!enabled || anonymous)
             return;
 
         INSTR_TIME_SET_CURRENT(end_time);
